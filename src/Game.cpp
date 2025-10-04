@@ -10,7 +10,7 @@ int width;
 SDL_Renderer* Game::renderer=nullptr;
 Game::Game(){}
 
-void Game::init(char* title, int x, int y, int w, int h, bool fullscreen)
+void Game::init(const char* title, int x, int y, int w, int h, bool fullscreen)
 {
     height=h;
     width=w;
@@ -29,9 +29,9 @@ void Game::init(char* title, int x, int y, int w, int h, bool fullscreen)
     }
     //grid=new Grid(grid);
     //g=new Object(240,200,600,500, "assets/grid.png");
-    char* path1="assets/R.png";
-    char* path2="assets/CC.png";
-    char* path3="assets/menu.jpg";
+    const char* path1="assets/R.png";
+    const char* path2="assets/CC.png";
+    const char* path3="assets/menu.jpg";
     grid=new Grid(path1,path2);
     menu= new Object(0,0,width,height,path3);
     //texture =Texture::loadTexture(, renderer);
