@@ -5,7 +5,40 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+option(CONNECT4_BUILD_GAME "Build the SDL2 game" ON)
+option(CONNECT4_BUILD_TESTS "Build the unit tests" ON)
+
 include(FetchContent)
+
+# Game rules and AI. Plain C++ with no SDL dependency, so the tests can
+# exercise it without opening a window.
+add_library(connect4_core
+    core/board.cpp)
+target_include_directories(connect4_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+if(MSVC)
+    target_compile_options(connect4_core PRIVATE /W4 /permissive-)
+else()
+    target_compile_options(connect4_core PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+if(CONNECT4_BUILD_TESTS)
+    enable_testing()
+    FetchContent_Declare(doctest
+        GIT_REPOSITORY https://github.com/doctest/doctest.git
+        GIT_TAG v2.4.12
+        GIT_SHALLOW TRUE)
+    FetchContent_MakeAvailable(doctest)
+
+    add_executable(connect4_tests
+        tests/main.cpp
+        tests/board_tests.cpp)
+    target_link_libraries(connect4_tests PRIVATE connect4_core doctest::doctest)
+    add_test(NAME connect4_tests COMMAND connect4_tests)
+endif()
+
+if(NOT CONNECT4_BUILD_GAME)
+    return()
+endif()
 
 # SDL2 and SDL2_image are built from source as static libraries, so the game
 # needs no system-wide SDL install and no DLLs shipped next to it.
