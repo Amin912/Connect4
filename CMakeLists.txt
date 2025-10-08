@@ -13,7 +13,8 @@ include(FetchContent)
 # Game rules and AI. Plain C++ with no SDL dependency, so the tests can
 # exercise it without opening a window.
 add_library(connect4_core
-    core/board.cpp)
+    core/board.cpp
+    core/ai.cpp)
 target_include_directories(connect4_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 if(MSVC)
     target_compile_options(connect4_core PRIVATE /W4 /permissive-)
@@ -31,7 +32,8 @@ if(CONNECT4_BUILD_TESTS)
 
     add_executable(connect4_tests
         tests/main.cpp
-        tests/board_tests.cpp)
+        tests/board_tests.cpp
+        tests/ai_tests.cpp)
     target_link_libraries(connect4_tests PRIVATE connect4_core doctest::doctest)
     add_test(NAME connect4_tests COMMAND connect4_tests)
 endif()
