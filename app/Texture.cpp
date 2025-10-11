@@ -1,9 +1,16 @@
 #include "Texture.h"
 
-SDL_Texture* Texture::loadTexture(const char* file){
-    SDL_Texture* ret;
-    SDL_Surface* tmp=IMG_Load(file);
-    ret=SDL_CreateTextureFromSurface(Game::renderer,tmp);
-    SDL_FreeSurface(tmp);
-    return ret;
+#include "Game.h"
+
+#include <SDL_image.h>
+
+#include <stdexcept>
+
+TexturePtr Texture::loadTexture(const std::string& file)
+{
+    SDL_Texture* texture = IMG_LoadTexture(Game::renderer, file.c_str());
+    if (!texture) {
+        throw std::runtime_error("Could not load " + file + ": " + IMG_GetError());
+    }
+    return TexturePtr(texture);
 }

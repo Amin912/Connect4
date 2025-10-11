@@ -1,31 +1,34 @@
-#ifndef GAME_H
-#define GAME_H
-#include <SDL.h>
-#include <SDL_image.h>
-#include <iostream>
-#include <cstring>
+#pragma once
 
-using namespace std;
+#include <SDL.h>
+
+#include <memory>
+
+class Grid;
+
+// Owns the window and renderer and runs one frame at a time:
+// event() -> update() -> render().
 class Game
 {
-    public:
-        Game();
-        void init(const char*, int, int, int, int, bool); //creates the game window
-        void event(); //handles player inputs
-        void render(); //updates the
-        void update();
-        void over();
-        bool activated(){return isActivated;}
-        virtual ~Game();
+public:
+    Game();
+    ~Game();
+    Game(const Game&) = delete;
+    Game& operator=(const Game&) = delete;
 
-        static SDL_Renderer* renderer;
-    protected:
+    // Creates the window and loads the board. Returns false on failure,
+    // after telling the user why.
+    bool init(const char* title, int x, int y, int w, int h, bool fullscreen);
 
-    private:
-        SDL_Window* window;
-        bool isActivated;
-        bool menuOn=1;
+    void event();  // handles player input
+    void update();
+    void render();
+    bool activated() const { return isActivated; }
 
+    static SDL_Renderer* renderer;
+
+private:
+    SDL_Window* window = nullptr;
+    bool isActivated = false;
+    std::unique_ptr<Grid> grid;
 };
-
-#endif // GAME_H

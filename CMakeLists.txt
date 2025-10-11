@@ -76,9 +76,17 @@ add_executable(connect4
     app/Object.cpp
     app/Texture.cpp)
 target_link_libraries(connect4 PRIVATE
+    connect4_core
     SDL2::SDL2main
     SDL2::SDL2-static
     SDL2_image::SDL2_image-static)
+if(MSVC)
+    target_compile_options(connect4 PRIVATE /W4 /permissive-)
+else()
+    target_compile_options(connect4 PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+# A windowed app on Windows: no console window opens next to the game.
+set_target_properties(connect4 PROPERTIES WIN32_EXECUTABLE TRUE)
 
 # The game loads its images from an assets folder next to the executable.
 add_custom_command(TARGET connect4 POST_BUILD

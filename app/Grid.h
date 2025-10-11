@@ -1,61 +1,57 @@
-#ifndef GRID_H
-#define GRID_H
-#include "Object.h"
-#define minfinity -10000
-#define pinfinity 10000
-#define HEIGHT 700
+#pragma once
 
+#include "Object.h"
+#include "Texture.h"
+#include "core/ai.h"
+#include "core/board.h"
+
+#include <SDL.h>
+
+#include <memory>
+#include <optional>
+#include <string>
+
+// The playing area: draws the board and pieces, turns mouse clicks into
+// moves for the human player and lets the AI reply. The rules themselves
+// live in connect4::Board.
 class Grid
 {
-    public:
-        Grid()
-        {
-            gameOff=false;
-        }
-        Grid(const char* path1, const char* path2)
-        {
-            gameOff=false;
-            loadChecks(path1, path2);
-            gridShape=new Object(gridX,gridY,600,500, "assets/grid.png");
-            w1=new Object(0,0,900,700,"assets/grid.png");
-//            w2=new Object(0,0,900,700,"assets/grid.png");
-        }
-        void loadChecks(const char* , const char* path2);
-        void render();
-        void update();
-        bool putCheck(int);
-        int TestThread(void*);
-        int normalize(int);
-        int denormalize(int);
-        int quantisize(int);
-        void event(SDL_Event);
-        bool win();
-        int evaluate();
-        void scoreVal(int& , int , int);
-        int geturn(){return turn;}
-        void next(){turn=turn==1?2:1;}
-        bool validCol(int col){return state[0][col]==0;}
-        Grid** children(int);
-        int minimax(int ,bool);
-        int alphabeta(int, int, int ,bool);
-        int aiInput(bool, int);
-        //Grid** children(int);
-        virtual ~Grid();
+public:
+    // Loads the images from assetDir. Throws std::runtime_error on failure.
+    explicit Grid(const std::string& assetDir);
 
-    protected:
+    void event(const SDL_Event& e);
+    void update();
+    void render() const;
 
-    private:
-        Object* gridShape; //defines the size and texture of the grid
-        Object* w1; //player1 wins screen
-        Object* w2; //player2 wins screen
-        bool gameOff; //true if one player wins
-        int turn=1;  //next plater to play
-        int state[6][7]={}; //represents the grid state
-        int gridX=150;//Modify to change the grid position
-        int gridY=150;//
-        int checkSize=80;
-        Object* checkers1[6][7];
-        Object* checkers2[6][7];
+private:
+    enum class State { HumanTurn, AiTurn, Over };
+
+    void play(int col, connect4::Player player);
+    void restart();
+    void setTitle(const char* title) const;
+
+    int columnAt(int x) const;   // column under screen x, or -1
+    int columnX(int col) const;  // screen x of a piece in that column
+    int floorY(int row) const;   // y the bottom of a piece in that row rests on
+
+    static constexpr connect4::Player Human = connect4::Player::One;
+    static constexpr connect4::Player Ai = connect4::Player::Two;
+
+    TexturePtr humanTexture;
+    TexturePtr aiTexture;
+    TexturePtr gridTexture;
+
+    int gridX = 150;  // modify to change the grid position
+    int gridY = 150;
+    int checkSize = 80;
+
+    connect4::Board board;
+    connect4::ai::Options aiOptions;  // depth 6 with alpha-beta
+    State state = State::HumanTurn;
+    int aiDelay = 0;  // frames left before the AI moves
+    std::optional<connect4::Line> winLine;
+
+    std::unique_ptr<Object> gridShape;
+    std::unique_ptr<Object> pieces[connect4::Board::Rows][connect4::Board::Cols];
 };
-
-#endif // GRID_H

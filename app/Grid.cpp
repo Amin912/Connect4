@@ -1,389 +1,151 @@
 #include "Grid.h"
-int nodeCount=0;
-int skipDuration=35;
-int skipTime=0;
-void Grid::loadChecks(const char* path1, const char* path2)
+
+#include "Game.h"
+
+using connect4::Board;
+using connect4::Player;
+
+namespace {
+
+// Left edge of each column in the board image, relative to gridX. The image
+// is drawn at 600x500, so the first column is slightly wider than the rest.
+constexpr int ColumnEdges[Board::Cols + 1] = {0, 89, 172, 255, 338, 421, 504, 587};
+
+// Frames to wait before the AI replies, so the player's piece lands first.
+constexpr int AiDelayFrames = 35;
+
+constexpr const char* DefaultTitle = "Connect 4";
+
+}  // namespace
+
+Grid::Grid(const std::string& assetDir)
+    : humanTexture(Texture::loadTexture(assetDir + "R.png")),
+      aiTexture(Texture::loadTexture(assetDir + "CC.png")),
+      gridTexture(Texture::loadTexture(assetDir + "grid.png")),
+      gridShape(std::make_unique<Object>(gridX, gridY, 600, 500, gridTexture.get()))
 {
-    for (int i=5;i>=0;i--){
-            for(int j=0;j<7;j++)
-            {
-                    checkers1[i][j]=new Object(denormalize(j+1),60,checkSize,checkSize,path1);checkers2[i][j]=new Object(denormalize(j+1),40,checkSize,checkSize,"assets/CC.png");
-            }
-            }
-}
-int Grid::normalize(int position)
-{
-    if (position>gridX && position<gridX+89)return 1;
-    if (position>gridX+89 && position<gridX+172)return 2;
-    if (position>gridX+172 && position<gridX+255)return 3;
-    if (position>gridX+255 && position<gridX+338)return 4;
-    if (position>gridX+338 && position<gridX+421)return 5;
-    if (position>gridX+421 && position<gridX+504)return 6;
-    if (position>gridX+504 && position<gridX+587)return 7;
-    return 0;
-}
-int Grid::denormalize(int p)
-{
-    if (p==1)return gridX+5;
-    if (p==2)return gridX+89;
-    if (p==3)return gridX+172;
-    if (p==4)return gridX+255;
-    if (p==5)return gridX+338;
-    if (p==6)return gridX+421;
-    if (p==7)return gridX+504;
-    return 0;
-}
-int Grid::quantisize(int position)
-{
-    if (position>gridX && position<gridX+89)return gridX;
-    if (position>gridX+89 && position<gridX+172)return gridX+89;
-    if (position>gridX+172 && position<gridX+255)return gridX+172;
-    if (position>gridX+255 && position<gridX+338)return gridX+255;
-    if (position>gridX+338 && position<gridX+421)return gridX+338;
-    if (position>gridX+421 && position<gridX+504)return gridX+421;
-    if (position>gridX+504 && position<gridX+587)return gridX+504;
-    return 0;
 }
 
-bool Grid::putCheck(int pos)
+int Grid::columnAt(int x) const
 {
-    int position;
-    if (pos<7 && pos>0) position=pos;
-    else position=normalize(pos);
-//    if (turn=1)position=normalize(pos);
-//    else position=pos;
-    if(position){
-    //if (state[0][position-1]!=0) cout<<"overload "<<turn<<endl;
-    for(int i=5;i>=0;i--){
-        if (state[i][position-1]==0){
-            state[i][position-1]=turn;
-            return true;
+    const int offset = x - gridX;
+    for (int col = 0; col < Board::Cols; ++col) {
+        if (offset >= ColumnEdges[col] && offset < ColumnEdges[col + 1]) {
+            return col;
         }
     }
-    }
-    return false;
+    return -1;
 }
 
-
-void Grid::event(SDL_Event e)
+int Grid::columnX(int col) const
 {
-    if (skipTime>skipDuration+1) skipTime=0;
-    if (!gameOff){
-        if (turn==1){
-    switch(e.type)
-    {
-
-
-        case SDL_MOUSEBUTTONDOWN:
-            int x,y,xx;
-            SDL_GetMouseState(&x,&y);
-            cout<<x<<endl;
-            //putCheck(x);
-            xx=quantisize(x);
-            if (xx && putCheck(x)){
-            if (normalize(x))next();
-            skipTime=0;
-            }
-            break;
-            default:break;
-    }
-        }
-
-            else {
-                cout<<skipTime<<endl;
-                if (skipTime>skipDuration){putCheck(aiInput(true,6)); next();}
-         }
-
-        }
-            else {state[6][7]={};gameOff=false;}
-    skipTime++;
-
+    return gridX + (col == 0 ? 5 : ColumnEdges[col]);
 }
 
-void Grid::render()
+int Grid::floorY(int row) const
 {
-    win();
-    if(!gameOff)
-    {
+    return gridY + 490 - (Board::Rows - 1 - row) * checkSize;
+}
 
-//    int k=0;
-//    int n=0;
-
-    for (int i=5;i>=0;i--){
-        for(int j=0;j<7;j++){
-            if(state[i][j]==1)
-            {
-                checkers1[i][j]->render();
-            }
-            if(state[i][j]==2)
-            {
-                checkers2[i][j]->render();
-            }
+void Grid::event(const SDL_Event& e)
+{
+    if (e.type != SDL_MOUSEBUTTONDOWN || e.button.button != SDL_BUTTON_LEFT) {
+        return;
+    }
+    if (state == State::Over) {
+        restart();
+        return;
+    }
+    if (state == State::HumanTurn) {
+        const int col = columnAt(e.button.x);
+        if (board.canPlay(col)) {
+            play(col, Human);
         }
     }
-    gridShape->render();
+}
+
+void Grid::play(int col, Player player)
+{
+    const int row = board.play(col, player);
+    const bool human = player == Human;
+    pieces[row][col] = std::make_unique<Object>(
+        columnX(col), human ? 60 : 40, checkSize, checkSize,
+        human ? humanTexture.get() : aiTexture.get());
+
+    if (board.connectsFour(row, col)) {
+        state = State::Over;
+        winLine = board.findFour();
+        setTitle(human ? "You win! Click to play again."
+                       : "The AI wins. Click to play again.");
+    } else if (board.isFull()) {
+        state = State::Over;
+        setTitle("Draw. Click to play again.");
+    } else if (human) {
+        state = State::AiTurn;
+        aiDelay = AiDelayFrames;
+    } else {
+        state = State::HumanTurn;
     }
-    else{w1->render();}
+}
 
+void Grid::restart()
+{
+    board = Board{};
+    for (auto& row : pieces) {
+        for (auto& piece : row) {
+            piece.reset();
+        }
+    }
+    winLine.reset();
+    state = State::HumanTurn;
+    setTitle(DefaultTitle);
+}
 
+void Grid::setTitle(const char* title) const
+{
+    SDL_SetWindowTitle(SDL_RenderGetWindow(Game::renderer), title);
 }
 
 void Grid::update()
 {
-       // win();
-
-       // gridShape->update();
-//        int k=0;
-//        int n=0;
-        if (!gameOff){
-        for (int i=5;i>=0;i--){
-            for(int j=0;j<7;j++){
-                if(state[i][j]==1)
-                {
-                    checkers1[i][j]->update();
-                    //checkers1[i][j]->setY(170+i*86);
-
-                    checkers1[i][j]->fall(gridY+490-(5-i)*checkSize);
-
-                }
-                if(state[i][j]==2)
-                {
-
-                    checkers2[i][j]->update();
-                    //checkers2[n++]->setY(170+i*86);
-
-                    checkers2[i][j]->fall(gridY+490-(5-i)*checkSize);
-                }
+    for (int row = 0; row < Board::Rows; ++row) {
+        for (int col = 0; col < Board::Cols; ++col) {
+            if (pieces[row][col]) {
+                pieces[row][col]->fall(floorY(row));
             }
         }
-        //cout<<checkers2[0]->getY()<<endl;
-        gridShape->update();
-        }
-        else {w1->update();}
+    }
 
-
-    //cout<<gameOff;
-
+    if (state == State::AiTurn && --aiDelay <= 0) {
+        const auto move = connect4::ai::bestMove(board, Ai, aiOptions);
+        play(move.column, Ai);
+    }
 }
 
-bool Grid::win(){
-    bool win=false;
-    for (int i=0;i<3;i++){
-        for(int j=0;j<7;j++){
-            if(state[i][j]!=0 && state[i][j]==state[i+1][j] && state[i][j]==state[i+2][j] && state[i][j]==state[i+3][j])win=true;
-        }
-    }
-
-    for (int i=0;i<6;i++){
-        for(int j=0;j<4;j++){
-            if(state[i][j]!=0 && state[i][j]==state[i][j+1] && state[i][j]==state[i][j+2] && state[i][j]==state[i][j+3])win=true;
-        }
-    }
-    for (int i=0;i<3;i++){
-        for(int j=0;j<4;j++){
-            if(state[i][j]!=0 && state[i][j]==state[i+1][j+1] && state[i][j]==state[i+2][j+2] && state[i][j]==state[i+3][j+3])win=true;
-        }
-    }
-    for (int i=0;i<3;i++){
-        for(int j=3;j<7;j++){
-            if(state[i][j]!=0 && state[i][j]==state[i+1][j-1] && state[i][j]==state[i+2][j-2] && state[i][j]==state[i+3][j-3])win=true;
-        }
-    }
-
-    gameOff=win;
-    return win;
-}
-
-int Grid::evaluate()
+void Grid::render() const
 {
-    int score=0;
-    int cmax=0,cmin=0;
-    for(int i=0;i<3;i++){
-            for(int j=0;j<7;j++){
-                    for(int k=0;k<4;k++){
-                            {
-                                if(state[i+k][j]==1) cmin++;
-                                if(state[i+k][j]==2) cmax++;
-                            }
-                    }
-                    scoreVal(score, cmax,cmin);
-                    cmax=0;cmin=0;
-            }
-    }
-
-    for(int i=0;i<6;i++){
-        for(int j=0;j<4;j++){
-                    for(int k=0;k<4;k++){
-                            {
-                                if(state[i][j+k]==1) cmin++;
-                                if(state[i][j+k]==2) cmax++;
-                            }
-                    }
-                    scoreVal(score, cmax,cmin);cmax=0;cmin=0;
-            }
-    }
-
-    for (int i=0;i<3;i++){
-        for(int j=0;j<4;j++){
-                    for(int k=0;k<4;k++){
-                            {
-                                if(state[i+k][j+k]==1) cmin++;
-                                if(state[i+k][j+k]==2) cmax++;
-                            }
-                    }
-                    scoreVal(score, cmax,cmin);
-                    cmax=0;
-                    cmin=0;
-            }
-    }
-
-    for (int i=0;i<3;i++){
-        for(int j=3;j<7;j++){
-                    for(int k=0;k<4;k++){
-                            {
-                                if(state[i+k][j-k]==1) cmin++;
-                                if(state[i+k][j-k]==2) cmax++;
-                            }
-                    }
-                    scoreVal(score, cmax, cmin);cmax=0;cmin=0;
-            }
-    }
-    return score;
-}
-
-void Grid::scoreVal(int &score, int cmax , int cmin){
-    if(cmin==0){
-        switch(cmax){
-            case 1:
-                score+=1;
-                break;
-            case 2:
-                score+=15;
-                break;
-            case 3:
-                score+=40
-                ;
-                break;
-        }
-    }
-    if (cmax==0){
-        switch(cmin){
-            case 1:
-                score-=1;
-                break;
-            case 2:
-                score-=15;
-                break;
-            case 3:
-                score-=40;
-                break;
-        }
-    }
-
-}
-///kznfojkzomeknc
-
-Grid** Grid::children(int t){
-    //nodeCount+=7;
-    Grid **result;
-    result= new Grid*[7];
-    for (int i=0;i<7;i++){
-        result[i]=new Grid();
-        for (int j=0;j<6;j++){
-                for (int k=0;k<7;k++){result[i]->state[j][k]=state[j][k];}}
-        result[i]->turn=t;
-        result[i]->putCheck(i+1);
-    }
-    return result;
-}
-
-int Grid::minimax(int depth , bool maxplay){
-    int value;
-    if(win() &&turn==1) return minfinity;
-    if(win() && turn ==2) return pinfinity;
-    if (depth==0){
-        return evaluate();
-    }
-
-    if (maxplay){
-        value=minfinity;
-        Grid** childList= new Grid*[7];
-        childList=children(2);
-        for(int i=0; i<7;i++) value=max(value,childList[i]->minimax(depth-1 ,false));
-        return value;
-    }
-    else {
-        value=pinfinity;
-        Grid** childList= new Grid*[7];
-        childList=children(1);
-        for(int i=0; i<7;i++) value=min(value, childList[i]->minimax(depth-1,true));
-        return value;
-    }
-}
-int Grid::alphabeta(int depth , int alpha, int beta, bool maxplay){
-    int value;
-    if(win() &&turn==1) return minfinity;
-    if(win() && turn ==2) return pinfinity;
-    if (depth==0){
-        return evaluate();
-    }
-
-    if (maxplay){
-        value=minfinity;
-        Grid** childList= new Grid*[7];
-        childList=children(2);
-        for(int i=0; i<7;i++){
-                value=max(value,childList[i]->minimax(depth-1 ,false));
-                alpha=max(alpha, value);
-                if (alpha>beta)break;
-        }
-        return value;
-    }
-    else {
-        value=pinfinity;
-        Grid** childList= new Grid*[7];
-        childList=children(1);
-        for(int i=0; i<7;i++){
-            value=min(value, childList[i]->minimax(depth-1,true));
-            beta=min(value, beta);
-            if(alpha>beta)break;
-        }
-        return value;
-    }
-}
-
-
-int Grid::aiInput(bool alphabetaAlgo, int depth)
-{
-    int in;
-    int mini=minfinity;
-    Grid** successors=new Grid*[7];
-    successors=children(2);
-    if (alphabetaAlgo)
-    {
-        for (int i=0;i<7;i++){
-            if(mini<successors[i]->alphabeta(depth-1, minfinity, pinfinity, false )&& validCol(i))
-            {
-                mini=successors[i]->alphabeta(depth-1,minfinity, pinfinity, false);
-                in=i+1;
+    // Pieces first, then the board on top: its holes are transparent, so the
+    // pieces show through them.
+    for (const auto& row : pieces) {
+        for (const auto& piece : row) {
+            if (piece) {
+                piece->render();
             }
         }
     }
-    else
-    {
-        for (int i=0;i<7;i++){
-        if(mini<successors[i]->minimax(depth-1, false) && validCol(i))
-            {
-                mini=successors[i]->minimax(depth-1, false);
-                in=i+1;
+    gridShape->render();
+
+    if (winLine) {
+        Uint8 r, g, b, a;
+        SDL_GetRenderDrawColor(Game::renderer, &r, &g, &b, &a);
+        SDL_SetRenderDrawColor(Game::renderer, 40, 220, 90, 255);
+        for (const auto& cell : winLine->cells) {
+            SDL_Rect outline = pieces[cell.row][cell.col]->rect();
+            for (int i = 0; i < 4; ++i) {
+                SDL_RenderDrawRect(Game::renderer, &outline);
+                outline = {outline.x - 1, outline.y - 1, outline.w + 2, outline.h + 2};
             }
         }
+        SDL_SetRenderDrawColor(Game::renderer, r, g, b, a);
     }
-    return in;
-
-}
-
-Grid::~Grid()
-{
-    //dtor
 }
