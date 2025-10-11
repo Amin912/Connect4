@@ -70,12 +70,11 @@ FetchContent_Declare(SDL2_image
 FetchContent_MakeAvailable(SDL2 SDL2_image)
 
 add_executable(connect4
-    main.cpp
-    src/Game.cpp
-    src/Grid.cpp
-    src/Object.cpp
-    src/Texture.cpp)
-target_include_directories(connect4 PRIVATE include)
+    app/main.cpp
+    app/Game.cpp
+    app/Grid.cpp
+    app/Object.cpp
+    app/Texture.cpp)
 target_link_libraries(connect4 PRIVATE
     SDL2::SDL2main
     SDL2::SDL2-static
