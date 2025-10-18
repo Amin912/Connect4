@@ -2,23 +2,26 @@
 
 #include <SDL.h>
 
-// A textured rectangle on screen: the board image or one piece. Pieces fall
-// under gravity until they reach their row. The texture is shared between
-// objects and owned elsewhere.
+// A piece on screen. It falls under gravity until it reaches its row, then
+// bounces once. The texture is shared between pieces and owned elsewhere.
 class Object
 {
 public:
-    Object(int x, int y, int w, int h, SDL_Texture* texture);
+    // (x, y) is the centre, in window units.
+    Object(float x, float y, SDL_Texture* texture);
 
-    // Moves the object one frame's worth of gravity towards floorY, the
-    // y coordinate its bottom edge should rest on.
-    void fall(int floorY);
-    void render() const;
+    // Advances the fall by dt seconds. restY is where the centre comes to rest.
+    void fall(float restY, float dt);
+    void render(SDL_Renderer* renderer, float scale, Uint8 alpha = 255) const;
 
-    const SDL_Rect& rect() const { return dest; }
+    bool resting() const { return atRest; }
+    float x() const { return xpos; }
+    float y() const { return ypos; }
 
 private:
     SDL_Texture* texture;
-    SDL_Rect dest;
-    int yspeed = 0;
+    float xpos;
+    float ypos;
+    float yspeed = 0;  // units per second, downwards
+    bool atRest = false;
 };

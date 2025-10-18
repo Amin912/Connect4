@@ -1,29 +1,39 @@
 #include "Object.h"
 
-#include "Game.h"
+#include "Texture.h"
 
-Object::Object(int x, int y, int w, int h, SDL_Texture* texture)
-    : texture(texture), dest{x, y, w, h}
-{
-}
+namespace {
 
-void Object::fall(int floorY)
+constexpr float Gravity = 3800;     // units per second squared
+constexpr float Bounce = 0.22f;     // share of the speed kept after hitting the bottom
+constexpr float MinBounceSpeed = 250;
+
+}  // namespace
+
+Object::Object(float x, float y, SDL_Texture* texture) : texture(texture), xpos(x), ypos(y) {}
+
+void Object::fall(float restY, float dt)
 {
-    const int restY = floorY - dest.h;
-    if (dest.y >= restY) {
+    if (atRest) {
         return;
     }
-    // Speed grows by one pixel per frame. The position is clamped in the
-    // same step, so a piece is never drawn below its row for a frame.
-    ++yspeed;
-    dest.y += yspeed;
-    if (dest.y >= restY) {
-        dest.y = restY;
-        yspeed = 0;
+    yspeed += Gravity * dt;
+    ypos += yspeed * dt;
+    if (ypos >= restY) {
+        // Clamp in the same step, so a piece is never drawn below its row.
+        ypos = restY;
+        if (yspeed > MinBounceSpeed) {
+            yspeed = -yspeed * Bounce;
+        } else {
+            yspeed = 0;
+            atRest = true;
+        }
     }
 }
 
-void Object::render() const
+void Object::render(SDL_Renderer* renderer, float scale, Uint8 alpha) const
 {
-    SDL_RenderCopy(Game::renderer, texture, nullptr, &dest);
+    SDL_SetTextureAlphaMod(texture, alpha);
+    Texture::drawCentered(renderer, texture, xpos, ypos, scale);
+    SDL_SetTextureAlphaMod(texture, 255);
 }

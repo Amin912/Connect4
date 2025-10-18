@@ -1,50 +1,33 @@
 #include "Grid.h"
 
-#include "Game.h"
+#include "Theme.h"
+
+#include <cmath>
 
 using connect4::Board;
 using connect4::Player;
 
 namespace {
 
-// Left edge of each column in the board image, relative to gridX. The image
-// is drawn at 600x500, so the first column is slightly wider than the rest.
-constexpr int ColumnEdges[Board::Cols + 1] = {0, 89, 172, 255, 338, 421, 504, 587};
+// Pause before the AI replies, so the player's piece lands first.
+constexpr float AiDelaySeconds = 0.55f;
 
-// Frames to wait before the AI replies, so the player's piece lands first.
-constexpr int AiDelayFrames = 35;
-
-constexpr const char* DefaultTitle = "Connect 4";
+constexpr const char* DefaultTitle = "Four in a Row";
 
 }  // namespace
 
-Grid::Grid(const std::string& assetDir)
-    : humanTexture(Texture::loadTexture(assetDir + "R.png")),
-      aiTexture(Texture::loadTexture(assetDir + "CC.png")),
-      gridTexture(Texture::loadTexture(assetDir + "grid.png")),
-      gridShape(std::make_unique<Object>(gridX, gridY, 600, 500, gridTexture.get()))
+Grid::Grid(SDL_Renderer* renderer, const Sprites& sprites) : renderer(renderer), sprites(sprites)
 {
 }
 
-int Grid::columnAt(int x) const
+int Grid::columnAt(float x) const
 {
-    const int offset = x - gridX;
-    for (int col = 0; col < Board::Cols; ++col) {
-        if (offset >= ColumnEdges[col] && offset < ColumnEdges[col + 1]) {
-            return col;
-        }
+    const float offset = x - theme::BoardX - theme::BoardPadding;
+    if (offset < 0) {
+        return -1;
     }
-    return -1;
-}
-
-int Grid::columnX(int col) const
-{
-    return gridX + (col == 0 ? 5 : ColumnEdges[col]);
-}
-
-int Grid::floorY(int row) const
-{
-    return gridY + 490 - (Board::Rows - 1 - row) * checkSize;
+    const int col = static_cast<int>(offset / theme::Cell);
+    return col < Board::Cols ? col : -1;
 }
 
 void Grid::event(const SDL_Event& e)
@@ -57,7 +40,7 @@ void Grid::event(const SDL_Event& e)
         return;
     }
     if (state == State::HumanTurn) {
-        const int col = columnAt(e.button.x);
+        const int col = columnAt(static_cast<float>(e.button.x));
         if (board.canPlay(col)) {
             play(col, Human);
         }
@@ -69,8 +52,8 @@ void Grid::play(int col, Player player)
     const int row = board.play(col, player);
     const bool human = player == Human;
     pieces[row][col] = std::make_unique<Object>(
-        columnX(col), human ? 60 : 40, checkSize, checkSize,
-        human ? humanTexture.get() : aiTexture.get());
+        theme::columnCenterX(col), theme::DropZoneY,
+        human ? sprites.humanPiece.get() : sprites.aiPiece.get());
 
     if (board.connectsFour(row, col)) {
         state = State::Over;
@@ -82,7 +65,7 @@ void Grid::play(int col, Player player)
         setTitle("Draw. Click to play again.");
     } else if (human) {
         state = State::AiTurn;
-        aiDelay = AiDelayFrames;
+        aiDelay = AiDelaySeconds;
     } else {
         state = State::HumanTurn;
     }
@@ -103,49 +86,67 @@ void Grid::restart()
 
 void Grid::setTitle(const char* title) const
 {
-    SDL_SetWindowTitle(SDL_RenderGetWindow(Game::renderer), title);
+    SDL_SetWindowTitle(SDL_RenderGetWindow(renderer), title);
 }
 
-void Grid::update()
+bool Grid::isWinningCell(int row, int col) const
 {
+    if (!winLine) {
+        return false;
+    }
+    for (const auto& cell : winLine->cells) {
+        if (cell.row == row && cell.col == col) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void Grid::update(float dt)
+{
+    time += dt;
     for (int row = 0; row < Board::Rows; ++row) {
         for (int col = 0; col < Board::Cols; ++col) {
             if (pieces[row][col]) {
-                pieces[row][col]->fall(floorY(row));
+                pieces[row][col]->fall(theme::rowCenterY(row), dt);
             }
         }
     }
 
-    if (state == State::AiTurn && --aiDelay <= 0) {
-        const auto move = connect4::ai::bestMove(board, Ai, aiOptions);
-        play(move.column, Ai);
+    if (state == State::AiTurn) {
+        aiDelay -= dt;
+        if (aiDelay <= 0) {
+            play(connect4::ai::bestMove(board, Ai, aiOptions).column, Ai);
+        }
     }
 }
 
 void Grid::render() const
 {
-    // Pieces first, then the board on top: its holes are transparent, so the
-    // pieces show through them.
-    for (const auto& row : pieces) {
-        for (const auto& piece : row) {
-            if (piece) {
-                piece->render();
+    const float scale = sprites.scale;
+    Texture::draw(renderer, sprites.boardShadow.get(), theme::BoardX - Sprites::ShadowBlur,
+                  theme::BoardY - Sprites::ShadowBlur + 14, scale);
+    Texture::draw(renderer, sprites.boardBack.get(), theme::BoardX, theme::BoardY, scale);
+
+    // Pieces sit between the back panel and the front of the board, so they
+    // show through the holes. Once the game is won, the others fade back.
+    for (int row = 0; row < Board::Rows; ++row) {
+        for (int col = 0; col < Board::Cols; ++col) {
+            if (pieces[row][col]) {
+                const bool dim = winLine && !isWinningCell(row, col);
+                pieces[row][col]->render(renderer, scale, dim ? 90 : 255);
             }
         }
     }
-    gridShape->render();
+    Texture::draw(renderer, sprites.boardFront.get(), theme::BoardX, theme::BoardY, scale);
 
     if (winLine) {
-        Uint8 r, g, b, a;
-        SDL_GetRenderDrawColor(Game::renderer, &r, &g, &b, &a);
-        SDL_SetRenderDrawColor(Game::renderer, 40, 220, 90, 255);
+        const float pulse = 0.5f + 0.5f * std::sin(time * 5);
+        SDL_SetTextureAlphaMod(sprites.ring.get(), static_cast<Uint8>(150 + 105 * pulse));
         for (const auto& cell : winLine->cells) {
-            SDL_Rect outline = pieces[cell.row][cell.col]->rect();
-            for (int i = 0; i < 4; ++i) {
-                SDL_RenderDrawRect(Game::renderer, &outline);
-                outline = {outline.x - 1, outline.y - 1, outline.w + 2, outline.h + 2};
-            }
+            const Object& piece = *pieces[cell.row][cell.col];
+            Texture::drawCentered(renderer, sprites.ring.get(), piece.x(), piece.y(), scale);
         }
-        SDL_SetRenderDrawColor(Game::renderer, r, g, b, a);
+        SDL_SetTextureAlphaMod(sprites.ring.get(), 255);
     }
 }
