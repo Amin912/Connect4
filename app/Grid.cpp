@@ -71,6 +71,13 @@ void Grid::play(int col, Player player)
     }
 }
 
+void Grid::start(const Settings& chosen)
+{
+    settings = chosen;
+    aiOptions.depth = searchDepth(settings.difficulty);
+    restart();
+}
+
 void Grid::restart()
 {
     board = Board{};
@@ -80,7 +87,12 @@ void Grid::restart()
         }
     }
     winLine.reset();
-    state = State::HumanTurn;
+    if (settings.humanFirst) {
+        state = State::HumanTurn;
+    } else {
+        state = State::AiTurn;
+        aiDelay = AiDelaySeconds;
+    }
     setTitle(DefaultTitle);
 }
 

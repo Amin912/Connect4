@@ -2,6 +2,7 @@
 
 #include "Object.h"
 #include "Paint.h"
+#include "Settings.h"
 #include "core/ai.h"
 #include "core/board.h"
 
@@ -18,6 +19,8 @@ class Grid
 public:
     Grid(SDL_Renderer* renderer, const Sprites& sprites);
 
+    // Starts a new game with the options chosen on the menu.
+    void start(const Settings& chosen);
     void event(const SDL_Event& e);
     void update(float dt);
     void render() const;
@@ -39,7 +42,8 @@ private:
     const Sprites& sprites;
 
     connect4::Board board;
-    connect4::ai::Options aiOptions;  // depth 6 with alpha-beta
+    Settings settings;
+    connect4::ai::Options aiOptions;
     State state = State::HumanTurn;
     float aiDelay = 0;  // seconds left before the AI moves
     float time = 0;     // seconds since the screen opened, for animations

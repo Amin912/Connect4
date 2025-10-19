@@ -1,7 +1,9 @@
 #include "Game.h"
 
 #include "Grid.h"
+#include "Menu.h"
 #include "Paint.h"
+#include "Text.h"
 #include "Theme.h"
 
 #include <exception>
@@ -15,6 +17,18 @@ void fail(const std::string& message)
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Four in a Row", message.c_str(), nullptr);
 }
 
+// Fonts are looked up next to the executable, not in the current working
+// directory, so the game also starts when launched from somewhere else.
+std::string fontDirectory()
+{
+    std::string dir = "assets/fonts/";
+    if (char* base = SDL_GetBasePath()) {
+        dir = std::string(base) + dir;
+        SDL_free(base);
+    }
+    return dir;
+}
+
 }  // namespace
 
 Game::Game() = default;
@@ -23,7 +37,15 @@ Game::~Game()
 {
     // Textures belong to the renderer, so they go first.
     grid.reset();
+    menu.reset();
+    text.reset();
     sprites.reset();
+    if (handCursor) {
+        SDL_FreeCursor(handCursor);
+    }
+    if (arrowCursor) {
+        SDL_FreeCursor(arrowCursor);
+    }
     if (renderer) {
         SDL_DestroyRenderer(renderer);
     }
@@ -67,8 +89,13 @@ bool Game::init(const char* title)
     const float scale = static_cast<float>(pixelWidth) / theme::WindowWidth;
     SDL_RenderSetScale(renderer, scale, scale);
 
+    arrowCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
+    handCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_HAND);
+
     try {
         sprites = std::make_unique<Sprites>(renderer, scale);
+        text = std::make_unique<Text>(renderer, fontDirectory(), scale);
+        menu = std::make_unique<Menu>(renderer, *sprites, *text);
         grid = std::make_unique<Grid>(renderer, *sprites);
 
         const SurfacePtr icon = paint::piece(28, theme::HumanColor, 1);
@@ -87,9 +114,22 @@ void Game::event()
     // Handle every event that arrived since the last frame.
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_QUIT ||
-            (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE)) {
+        if (event.type == SDL_QUIT) {
             isActivated = false;
+        } else if (screen == Screen::Menu) {
+            switch (menu->event(event)) {
+            case Menu::Action::Play:
+                grid->start(menu->settings());
+                screen = Screen::Playing;
+                break;
+            case Menu::Action::Quit:
+                isActivated = false;
+                break;
+            case Menu::Action::None:
+                break;
+            }
+        } else if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) {
+            screen = Screen::Menu;
         } else {
             grid->event(event);
         }
@@ -98,7 +138,11 @@ void Game::event()
 
 void Game::update(float dt)
 {
-    grid->update(dt);
+    if (screen == Screen::Menu) {
+        menu->update(dt);
+    } else {
+        grid->update(dt);
+    }
 }
 
 void Game::drawBackground() const
@@ -128,6 +172,12 @@ void Game::drawBackground() const
 void Game::render()
 {
     drawBackground();
-    grid->render();
+    bool overButton = false;
+    if (screen == Screen::Menu) {
+        overButton = menu->render();
+    } else {
+        grid->render();
+    }
+    SDL_SetCursor(overButton ? handCursor : arrowCursor);
     SDL_RenderPresent(renderer);
 }
