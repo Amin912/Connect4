@@ -96,7 +96,7 @@ bool Game::init(const char* title)
         sprites = std::make_unique<Sprites>(renderer, scale);
         text = std::make_unique<Text>(renderer, fontDirectory(), scale);
         menu = std::make_unique<Menu>(renderer, *sprites, *text);
-        grid = std::make_unique<Grid>(renderer, *sprites);
+        grid = std::make_unique<Grid>(renderer, *sprites, *text);
 
         const SurfacePtr icon = paint::piece(28, theme::HumanColor, 1);
         SDL_SetWindowIcon(window, icon.get());
@@ -128,10 +128,9 @@ void Game::event()
             case Menu::Action::None:
                 break;
             }
-        } else if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) {
+        } else if ((event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) ||
+                   grid->event(event) == Grid::Action::Menu) {
             screen = Screen::Menu;
-        } else {
-            grid->event(event);
         }
     }
 }
@@ -176,7 +175,7 @@ void Game::render()
     if (screen == Screen::Menu) {
         overButton = menu->render();
     } else {
-        grid->render();
+        overButton = grid->render();
     }
     SDL_SetCursor(overButton ? handCursor : arrowCursor);
     SDL_RenderPresent(renderer);

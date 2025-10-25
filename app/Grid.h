@@ -1,8 +1,10 @@
 #pragma once
 
+#include "Button.h"
 #include "Object.h"
 #include "Paint.h"
 #include "Settings.h"
+#include "Text.h"
 #include "core/ai.h"
 #include "core/board.h"
 
@@ -11,43 +13,57 @@
 #include <memory>
 #include <optional>
 
-// The playing area: draws the board and pieces, turns mouse clicks into
-// moves for the human player and lets the AI reply. The rules themselves
-// live in connect4::Board.
+// The game screen: draws the board and pieces, turns clicks and key presses
+// into moves for the human player and lets the AI reply. The rules
+// themselves live in connect4::Board.
 class Grid
 {
 public:
-    Grid(SDL_Renderer* renderer, const Sprites& sprites);
+    enum class Action { None, Menu };
 
-    // Starts a new game with the options chosen on the menu.
+    Grid(SDL_Renderer* renderer, const Sprites& sprites, Text& text);
+
+    // Starts a new match with the options chosen on the menu. Resets the score.
     void start(const Settings& chosen);
-    void event(const SDL_Event& e);
+
+    Action event(const SDL_Event& e);
     void update(float dt);
-    void render() const;
+    // Returns true if the mouse is over something clickable.
+    bool render() const;
 
 private:
     enum class State { HumanTurn, AiTurn, Over };
 
     void play(int col, connect4::Player player);
-    void restart();
-    void setTitle(const char* title) const;
-    bool isWinningCell(int row, int col) const;
+    void dropSelected();
+    void restart();  // next game: same settings, score kept
 
-    int columnAt(float x) const;  // column under window x, or -1
+    bool drawHeader() const;
+    void drawPreview() const;
+    bool drawFooter() const;
+    bool isWinningCell(int row, int col) const;
+    int columnAt(float x, float y) const;  // column under a window position, or -1
 
     static constexpr connect4::Player Human = connect4::Player::One;
     static constexpr connect4::Player Ai = connect4::Player::Two;
 
     SDL_Renderer* renderer;
     const Sprites& sprites;
+    Text& text;
+    Button menuButton;
+    Button playAgainButton;
 
     connect4::Board board;
     Settings settings;
     connect4::ai::Options aiOptions;
     State state = State::HumanTurn;
-    float aiDelay = 0;  // seconds left before the AI moves
-    float time = 0;     // seconds since the screen opened, for animations
+    float aiDelay = 0;        // seconds left before the AI moves
+    float time = 0;           // seconds since start, for animations
+    int selectedColumn = -1;  // where the preview piece is shown
     std::optional<connect4::Line> winLine;
+
+    int humanWins = 0;
+    int aiWins = 0;
 
     std::unique_ptr<Object> pieces[connect4::Board::Rows][connect4::Board::Cols];
 };

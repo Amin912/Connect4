@@ -246,6 +246,10 @@ Sprites::Sprites(SDL_Renderer* renderer, float scale)
       boardBack(Texture::fromSurface(renderer, paint::boardBack(scale).get())),
       boardShadow(Texture::fromSurface(renderer, paint::boardShadow(ShadowBlur, scale).get())),
       ring(Texture::fromSurface(renderer, paint::ring(RingRadius, 3, scale).get())),
-      glow(Texture::fromSurface(renderer, paint::glow(GlowRadius, scale).get()))
+      glow(Texture::fromSurface(renderer, paint::glow(GlowRadius, scale).get())),
+      humanDot(Texture::fromSurface(renderer, paint::piece(7, theme::HumanColor, scale).get())),
+      aiDot(Texture::fromSurface(renderer, paint::piece(7, theme::AiColor, scale).get())),
+      columnHighlight(Texture::fromSurface(
+          renderer, paint::roundedRect(theme::Cell - 8, theme::BoardHeight - 20, (theme::Cell - 8) / 2, scale).get()))
 {
 }

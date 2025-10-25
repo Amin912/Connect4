@@ -43,6 +43,9 @@ struct Sprites {
     TexturePtr boardShadow;
     TexturePtr ring;
     TexturePtr glow;
+    TexturePtr humanDot;         // small markers for the status line
+    TexturePtr aiDot;
+    TexturePtr columnHighlight;  // white strip, drawn faintly over a column
 
     static constexpr float ShadowBlur = 26;
     static constexpr float RingRadius = 31;
