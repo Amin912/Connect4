@@ -3,6 +3,7 @@
 #include "Theme.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <string>
 
@@ -11,7 +12,7 @@ using connect4::Player;
 
 namespace {
 
-// Pause before the AI replies, so the player's piece lands first.
+// Shortest pause before the AI replies, so the player's piece lands first.
 constexpr float AiDelaySeconds = 0.55f;
 
 constexpr float Centre = theme::WindowWidth / 2.f;
@@ -52,9 +53,20 @@ void Grid::restart()
     if (settings.humanFirst) {
         state = State::HumanTurn;
     } else {
-        state = State::AiTurn;
-        aiDelay = AiDelaySeconds;
+        startAiTurn();
     }
+}
+
+void Grid::startAiTurn()
+{
+    // Search on a background thread so the window keeps drawing; at higher
+    // difficulty a move can take a noticeable fraction of a second. The
+    // search gets its own copy of the board.
+    state = State::AiTurn;
+    aiDelay = AiDelaySeconds;
+    aiMove = std::async(std::launch::async, [position = board, options = aiOptions] {
+        return connect4::ai::bestMove(position, Ai, options);
+    });
 }
 
 int Grid::columnAt(float x, float y) const
@@ -137,8 +149,7 @@ void Grid::play(int col, Player player)
     } else if (board.isFull()) {
         state = State::Over;
     } else if (human) {
-        state = State::AiTurn;
-        aiDelay = AiDelaySeconds;
+        startAiTurn();
     } else {
         state = State::HumanTurn;
     }
@@ -170,8 +181,9 @@ void Grid::update(float dt)
 
     if (state == State::AiTurn) {
         aiDelay -= dt;
-        if (aiDelay <= 0) {
-            play(connect4::ai::bestMove(board, Ai, aiOptions).column, Ai);
+        const bool searchDone = aiMove.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+        if (aiDelay <= 0 && searchDone) {
+            play(aiMove.get().column, Ai);
         }
     }
 }

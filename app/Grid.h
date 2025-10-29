@@ -10,6 +10,7 @@
 
 #include <SDL.h>
 
+#include <future>
 #include <memory>
 #include <optional>
 
@@ -35,6 +36,7 @@ private:
     enum class State { HumanTurn, AiTurn, Over };
 
     void play(int col, connect4::Player player);
+    void startAiTurn();
     void dropSelected();
     void restart();  // next game: same settings, score kept
 
@@ -57,7 +59,8 @@ private:
     Settings settings;
     connect4::ai::Options aiOptions;
     State state = State::HumanTurn;
-    float aiDelay = 0;        // seconds left before the AI moves
+    float aiDelay = 0;        // minimum seconds left before the AI moves
+    std::future<connect4::ai::Result> aiMove;  // the search, running on another thread
     float time = 0;           // seconds since start, for animations
     int selectedColumn = -1;  // where the preview piece is shown
     std::optional<connect4::Line> winLine;
