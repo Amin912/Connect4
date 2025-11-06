@@ -22,6 +22,10 @@ else()
     target_compile_options(connect4_core PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
+# Prints how many positions each search variant visits (see the README).
+add_executable(connect4_bench bench/main.cpp)
+target_link_libraries(connect4_bench PRIVATE connect4_core)
+
 if(CONNECT4_BUILD_TESTS)
     enable_testing()
     FetchContent_Declare(doctest
