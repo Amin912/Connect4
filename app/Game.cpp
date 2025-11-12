@@ -17,16 +17,21 @@ void fail(const std::string& message)
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Four in a Row", message.c_str(), nullptr);
 }
 
+std::string basePath()
+{
+    std::string path;
+    if (char* base = SDL_GetBasePath()) {
+        path = base;
+        SDL_free(base);
+    }
+    return path;
+}
+
 // Fonts are looked up next to the executable, not in the current working
 // directory, so the game also starts when launched from somewhere else.
 std::string fontDirectory()
 {
-    std::string dir = "assets/fonts/";
-    if (char* base = SDL_GetBasePath()) {
-        dir = std::string(base) + dir;
-        SDL_free(base);
-    }
-    return dir;
+    return basePath() + "assets/fonts/";
 }
 
 }  // namespace
@@ -116,6 +121,8 @@ void Game::event()
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_QUIT) {
             isActivated = false;
+        } else if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_F12) {
+            screenshotRequested = true;
         } else if (screen == Screen::Menu) {
             switch (menu->event(event)) {
             case Menu::Action::Play:
@@ -178,5 +185,27 @@ void Game::render()
         overButton = grid->render();
     }
     SDL_SetCursor(overButton ? handCursor : arrowCursor);
+    if (screenshotRequested) {
+        saveScreenshot();
+        screenshotRequested = false;
+    }
     SDL_RenderPresent(renderer);
+}
+
+// Saves the frame just drawn as a BMP next to the executable, at full pixel
+// resolution.
+void Game::saveScreenshot() const
+{
+    int width = 0;
+    int height = 0;
+    SDL_GetRendererOutputSize(renderer, &width, &height);
+    const SurfacePtr shot(SDL_CreateRGBSurfaceWithFormat(0, width, height, 24, SDL_PIXELFORMAT_BGR24));
+    if (!shot || SDL_RenderReadPixels(renderer, nullptr, SDL_PIXELFORMAT_BGR24, shot->pixels, shot->pitch) != 0) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Screenshot failed: %s", SDL_GetError());
+        return;
+    }
+    const std::string path = basePath() + "screenshot-" + std::to_string(SDL_GetTicks()) + ".bmp";
+    if (SDL_SaveBMP(shot.get(), path.c_str()) != 0) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Screenshot failed: %s", SDL_GetError());
+    }
 }

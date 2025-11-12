@@ -32,12 +32,14 @@ private:
     enum class Screen { Menu, Playing };
 
     void drawBackground() const;
+    void saveScreenshot() const;
 
     SDL_Window* window = nullptr;
     SDL_Renderer* renderer = nullptr;
     SDL_Cursor* arrowCursor = nullptr;
     SDL_Cursor* handCursor = nullptr;
     bool isActivated = false;
+    bool screenshotRequested = false;
     Screen screen = Screen::Menu;
 
     std::unique_ptr<Sprites> sprites;
