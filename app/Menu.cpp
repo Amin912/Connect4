@@ -2,6 +2,7 @@
 
 #include "Theme.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace {
@@ -49,6 +50,17 @@ Menu::Action Menu::event(const SDL_Event& e)
             return Action::Play;
         case SDLK_ESCAPE:
             return Action::Quit;
+        case SDLK_LEFT:
+        case SDLK_RIGHT: {
+            const int step = e.key.keysym.sym == SDLK_LEFT ? -1 : 1;
+            const int level = std::clamp(static_cast<int>(chosen.difficulty) + step, 0, 2);
+            chosen.difficulty = static_cast<Difficulty>(level);
+            return Action::None;
+        }
+        case SDLK_UP:
+        case SDLK_DOWN:
+            chosen.humanFirst = !chosen.humanFirst;
+            return Action::None;
         default:
             return Action::None;
         }
@@ -98,7 +110,7 @@ bool Menu::render() const
 
     hovered |= playButton.render(text);
 
-    text.draw("Enter to play  \xC2\xB7  Esc to quit", Weight::Medium, 13, theme::MutedTextColor, Centre,
+    text.draw("Arrow keys to choose  \xC2\xB7  Enter to play  \xC2\xB7  Esc to quit", Weight::Medium, 13, theme::MutedTextColor, Centre,
               610, Align::Center);
     return hovered;
 }
