@@ -82,8 +82,11 @@ add_executable(connect4
     app/Paint.cpp
     app/Text.cpp
     app/Texture.cpp)
+# The AI searches on a background thread (std::async).
+find_package(Threads REQUIRED)
 target_link_libraries(connect4 PRIVATE
     connect4_core
+    Threads::Threads
     SDL2::SDL2main
     SDL2::SDL2-static
     SDL2_ttf::SDL2_ttf-static)
