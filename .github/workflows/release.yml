@@ -1,0 +1,39 @@
+name: Release
+
+# Pushing a tag like v1.0 builds the game and attaches a Windows zip to a
+# GitHub release.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The static C runtime means players don't need the Visual C++
+      # redistributable installed.
+      - name: Configure
+        run: cmake -S . -B build -DCONNECT4_BUILD_TESTS=OFF -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+
+      - name: Build
+        run: cmake --build build --config Release --target connect4 --parallel
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $dir = "dist/FourInARow"
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          Copy-Item build/Release/connect4.exe "$dir/FourInARow.exe"
+          Copy-Item build/Release/assets "$dir/assets" -Recurse
+          Copy-Item LICENSE, README.md $dir
+          Compress-Archive -Path $dir -DestinationPath dist/FourInARow-windows.zip
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/FourInARow-windows.zip
