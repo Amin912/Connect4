@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Four in a Row</title>
+  <meta name="description" content="A four-in-a-row game in C++ and SDL2, compiled to WebAssembly, against a minimax AI with alpha-beta pruning.">
+  <style>
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: #0f1424;
+      color: #8b93ad;
+      font: 14px system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    main {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 24px 16px;
+    }
+    canvas {
+      display: block;
+      /* SDL sets a fixed size inline; on a narrow screen shrink it evenly. */
+      max-width: 100%;
+      height: auto !important;
+      border-radius: 12px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+      outline: none;
+    }
+    a {
+      color: #eef1f8;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p id="status">Loading…</p>
+    <canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+    <p>C++ and SDL2 compiled to WebAssembly. <a href="https://github.com/Amin912/Connect4">Source on GitHub</a></p>
+  </main>
+  <script>
+    var Module = {
+      canvas: document.getElementById("canvas"),
+      setStatus: function (text) {
+        var status = document.getElementById("status");
+        status.textContent = text;
+        status.hidden = text === "";
+      },
+      onRuntimeInitialized: function () {
+        document.getElementById("canvas").focus();
+      },
+    };
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>

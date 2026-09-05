@@ -110,7 +110,11 @@ bool Menu::render() const
 
     hovered |= playButton.render(text);
 
-    text.draw("Arrow keys to choose  \xC2\xB7  Enter to play  \xC2\xB7  Esc to quit", Weight::Medium, 13, theme::MutedTextColor, Centre,
-              610, Align::Center);
+#ifdef __EMSCRIPTEN__
+    const char* hint = "Arrow keys to choose  \xC2\xB7  Enter to play";  // a web page can't be quit
+#else
+    const char* hint = "Arrow keys to choose  \xC2\xB7  Enter to play  \xC2\xB7  Esc to quit";
+#endif
+    text.draw(hint, Weight::Medium, 13, theme::MutedTextColor, Centre, 610, Align::Center);
     return hovered;
 }

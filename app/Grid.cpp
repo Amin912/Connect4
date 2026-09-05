@@ -62,9 +62,18 @@ void Grid::startAiTurn()
     // Search on a background thread so the window keeps drawing; at higher
     // difficulty a move can take a noticeable fraction of a second. The
     // search gets its own copy of the board.
+    //
+    // In the browser there are no threads unless the page is served with
+    // special headers, which GitHub Pages does not send. There the search is
+    // deferred: it runs when the move is due, on the main thread.
+#ifdef __EMSCRIPTEN__
+    constexpr auto policy = std::launch::deferred;
+#else
+    constexpr auto policy = std::launch::async;
+#endif
     state = State::AiTurn;
     aiDelay = AiDelaySeconds;
-    aiMove = std::async(std::launch::async, [position = board, options = aiOptions] {
+    aiMove = std::async(policy, [position = board, options = aiOptions] {
         return connect4::ai::bestMove(position, Ai, options);
     });
 }
@@ -181,7 +190,8 @@ void Grid::update(float dt)
 
     if (state == State::AiTurn) {
         aiDelay -= dt;
-        const bool searchDone = aiMove.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+        // A deferred search reports "deferred" rather than "ready"; get() runs it.
+        const bool searchDone = aiMove.wait_for(std::chrono::seconds(0)) != std::future_status::timeout;
         if (aiDelay <= 0 && searchDone) {
             play(aiMove.get().column, Ai);
         }

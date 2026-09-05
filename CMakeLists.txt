@@ -23,8 +23,10 @@ else()
 endif()
 
 # Prints how many positions each search variant visits (see the README).
-add_executable(connect4_bench bench/main.cpp)
-target_link_libraries(connect4_bench PRIVATE connect4_core)
+if(NOT EMSCRIPTEN)
+    add_executable(connect4_bench bench/main.cpp)
+    target_link_libraries(connect4_bench PRIVATE connect4_core)
+endif()
 
 if(CONNECT4_BUILD_TESTS)
     enable_testing()
@@ -43,6 +45,37 @@ if(CONNECT4_BUILD_TESTS)
 endif()
 
 if(NOT CONNECT4_BUILD_GAME)
+    return()
+endif()
+
+add_executable(connect4
+    app/main.cpp
+    app/Button.cpp
+    app/Game.cpp
+    app/Grid.cpp
+    app/Menu.cpp
+    app/Object.cpp
+    app/Paint.cpp
+    app/Text.cpp
+    app/Texture.cpp)
+target_link_libraries(connect4 PRIVATE connect4_core)
+if(MSVC)
+    target_compile_options(connect4 PRIVATE /W4 /permissive-)
+else()
+    target_compile_options(connect4 PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+if(EMSCRIPTEN)
+    # Browser build (emcmake cmake ...). SDL2 and SDL2_ttf come from
+    # Emscripten's own ports, and the fonts are packed into a data file that
+    # the page downloads. The output is index.html plus its .js, .wasm and .data.
+    set(PORTS "-sUSE_SDL=2" "-sUSE_SDL_TTF=2")
+    target_compile_options(connect4 PRIVATE ${PORTS})
+    target_link_options(connect4 PRIVATE ${PORTS}
+        "-sALLOW_MEMORY_GROWTH=1"
+        "SHELL:--preload-file ${CMAKE_CURRENT_SOURCE_DIR}/assets@/assets"
+        "SHELL:--shell-file ${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html")
+    set_target_properties(connect4 PROPERTIES OUTPUT_NAME index SUFFIX ".html")
     return()
 endif()
 
@@ -72,29 +105,13 @@ FetchContent_Declare(SDL2_ttf
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 FetchContent_MakeAvailable(SDL2 SDL2_ttf)
 
-add_executable(connect4
-    app/main.cpp
-    app/Button.cpp
-    app/Game.cpp
-    app/Grid.cpp
-    app/Menu.cpp
-    app/Object.cpp
-    app/Paint.cpp
-    app/Text.cpp
-    app/Texture.cpp)
 # The AI searches on a background thread (std::async).
 find_package(Threads REQUIRED)
 target_link_libraries(connect4 PRIVATE
-    connect4_core
     Threads::Threads
     SDL2::SDL2main
     SDL2::SDL2-static
     SDL2_ttf::SDL2_ttf-static)
-if(MSVC)
-    target_compile_options(connect4 PRIVATE /W4 /permissive-)
-else()
-    target_compile_options(connect4 PRIVATE -Wall -Wextra -Wpedantic)
-endif()
 # A windowed app on Windows: no console window opens next to the game.
 set_target_properties(connect4 PROPERTIES WIN32_EXECUTABLE TRUE)
 
