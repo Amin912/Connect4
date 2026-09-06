@@ -3,6 +3,9 @@
 A four-in-a-row game in C++17 and SDL2, played against an AI that uses
 minimax search with alpha-beta pruning.
 
+**[Play it in the browser](https://amin912.github.io/Connect4/)**: the same
+C++ code, compiled to WebAssembly.
+
 <p align="center">
   <img src="docs/game.png" width="49%" alt="A game in progress, with a preview of where the next piece will drop">
   <img src="docs/win.png" width="49%" alt="The winning four pieces highlighted">
@@ -70,6 +73,19 @@ cmake --build build --config Release
 On Windows you can also open the folder in Visual Studio 2022. On Linux, SDL
 needs the usual X11 or Wayland development packages (for example
 `libx11-dev libxext-dev` on Debian/Ubuntu).
+
+For the browser version, install [Emscripten](https://emscripten.org/docs/getting_started/downloads.html)
+and build with its CMake wrapper. SDL2 and SDL2_ttf then come from
+Emscripten's own ports:
+
+```sh
+emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release -DCONNECT4_BUILD_TESTS=OFF
+cmake --build build-web
+```
+
+Serve `build-web/` over HTTP and open `index.html`. GitHub Pages cannot
+enable threads in the browser, so there the AI searches on the main thread
+when its move is due; on Hard that can pause the page for a moment.
 
 Run the tests and the benchmark:
 
