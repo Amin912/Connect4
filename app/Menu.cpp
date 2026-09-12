@@ -95,7 +95,7 @@ bool Menu::render() const
     }
 
     text.draw("Four in a Row", Weight::Bold, 54, theme::TextColor, Centre, 236, Align::Center);
-    text.draw("Play against a minimax AI with alpha-beta pruning.", Weight::Medium, 17,
+    text.draw("Line up four of your pieces before the AI does.", Weight::Medium, 17,
               theme::MutedTextColor, Centre, 282, Align::Center);
 
     bool hovered = false;
